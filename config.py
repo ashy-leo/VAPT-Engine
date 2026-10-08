@@ -45,12 +45,9 @@ DEFAULT_USER_AGENT = (
 PRIMARY_COLOR = "#1A365D"
 SECONDARY_COLOR = "#2B6CB0"
 
-# --- Settings for the CORS, technology, XSS, SQLi and redirect modules ---
 
-# Fake website used to test whether a server trusts any Origin (CORS)
 CORS_TEST_ORIGIN = "https://evil.example"
 
-# HTML keywords that hint at a CMS or JavaScript framework
 TECH_HTML_FINGERPRINTS = [
     "WordPress",
     "Joomla",
@@ -60,13 +57,11 @@ TECH_HTML_FINGERPRINTS = [
     "Vue"
 ]
 
-# Payload used to test for reflected XSS
+
 XSS_PAYLOAD = "<script>alert(1)</script>"
 
-# Characters that may break a SQL query and trigger a database error
 SQLI_PAYLOADS = ["'", '"', ")"]
 
-# Text in a response that suggests a database error happened
 SQLI_ERROR_INDICATORS = [
     "sql syntax",
     "mysql",
@@ -79,6 +74,5 @@ SQLI_ERROR_INDICATORS = [
     "microsoft sql server"
 ]
 
-# External URL injected into parameters to test for open redirects
 REDIRECT_TEST_URL = "https://example.com"
                                       

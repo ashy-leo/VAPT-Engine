@@ -1,9 +1,6 @@
 """
 reporting/pdf_generator.py
 
-Generates a professional, beginner-friendly PDF security assessment report
-for VAPT-Engine using ReportLab. All data is pulled defensively from a
-scan_results dict -- nothing here is faked or hardcoded.
 """
 
 from datetime import datetime
@@ -16,7 +13,7 @@ from reportlab.platypus import (
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib import colors
 
-# ---- Color palette -----------------------------------------------------
+#Color palette
 NAVY = colors.HexColor("#1A365D")
 DARK_GRAY = colors.HexColor("#2D3748")
 LIGHT_GREEN = colors.HexColor("#DFF5E1")
@@ -31,7 +28,6 @@ CRITICAL_HEADERS = {"strict-transport-security", "content-security-policy"}
 
 
 def _styles():
-    """Build and return the paragraph styles used throughout the report."""
     styles = getSampleStyleSheet()
 
     styles.add(ParagraphStyle(
@@ -67,7 +63,7 @@ def _styles():
 
 
 def _table_style(header_bg=NAVY, header_fg=colors.white):
-    """Base grid/header style shared by all tables."""
+    
     return TableStyle([
         ("BACKGROUND", (0, 0), (-1, 0), header_bg),
         ("TEXTCOLOR", (0, 0), (-1, 0), header_fg),
@@ -83,14 +79,7 @@ def _table_style(header_bg=NAVY, header_fg=colors.white):
 
 
 def _cell(text, styles):
-    """
-    Wrap a value in a Paragraph safely.
-
-    Dynamic scanner output can contain HTML/XML characters such as:
-    < > &
-    ReportLab's Paragraph parser interprets these as markup, so the
-    value must be escaped before being passed to Paragraph().
-    """
+    
     if text in (None, ""):
         text = "-"
 
@@ -101,12 +90,7 @@ def _cell(text, styles):
 
 
 def _text_cell(value, styles):
-    """
-    Safely wrap dynamic scanner output as plain text.
-
-    True/False values are displayed as Yes/No.
-    Escaping is handled by _cell().
-    """
+    
     if isinstance(value, bool):
         value = "Yes" if value else "No"
 
@@ -114,7 +98,7 @@ def _text_cell(value, styles):
 
 
 def _build_summary(scan_results, styles):
-    """Executive summary table of key counts, pulled safely from scan_results."""
+    
     open_ports = scan_results.get("open_ports", []) or []
     endpoints = scan_results.get("endpoints", []) or []
     headers_info = scan_results.get("http_headers", {}) or {}
@@ -444,7 +428,6 @@ def _build_cors_section(cors, styles):
 
 
 def _build_technology_section(tech, styles):
-    """Technology result from detect_technologies(): technologies + headers."""
 
     if not tech:
         return [
@@ -549,13 +532,7 @@ def _build_findings_table(
     flag_key,
     styles
 ):
-    """
-    Table of findings for XSS / SQLi / redirect.
-
-    headers = column titles
-    keys = dictionary keys to read for each column
-    flag_key = the True/False key that marks a row as a real finding
-    """
+    
 
     rows = [headers]
 
@@ -606,12 +583,7 @@ def _build_param_test_section(
     flag_key,
     styles
 ):
-    """
-    Shared layout for the XSS, SQLi and redirect results.
-
-    All three return:
-    "target", "tested_parameters" and "findings".
-    """
+    
 
     if not result:
         return [
@@ -712,49 +684,6 @@ def generate_pdf(
     scan_results: dict,
     output_filename: str = "vapt_report.pdf"
 ) -> str:
-    """
-    Build a VAPT-Engine PDF report from scan_results and write it to disk.
-
-    scan_results is expected to loosely follow this shape:
-
-        {
-            "target": "192.168.1.10",
-            "open_ports": [
-                {
-                    "port": 22,
-                    "state": "open",
-                    "service": "ssh",
-                    "banner": "..."
-                }
-            ],
-            "endpoints": [
-                {
-                    "path": "/admin",
-                    "status": 403,
-                    "url": "http://.../admin"
-                }
-            ],
-            "http_headers": {
-                "missing": [
-                    {
-                        "name": "Strict-Transport-Security",
-                        "recommendation": "..."
-                    }
-                ],
-                "present": {
-                    "Server": "nginx/1.18.0"
-                },
-            },
-            "cors": check_cors() result,
-            "technologies": detect_technologies() result,
-            "xss": check_xss() result,
-            "sqli": check_sqli() result,
-            "redirect": check_redirect() result,
-        }
-
-    Returns the path to the generated PDF file.
-    """
-
     styles = _styles()
 
     doc = SimpleDocTemplate(
@@ -766,7 +695,7 @@ def generate_pdf(
 
     story = []
 
-    # -- Header & metadata ----------------------------------------------
+    #Header & metadata 
 
     target = scan_results.get(
         "target",
@@ -831,7 +760,7 @@ def generate_pdf(
         Spacer(1, 12)
     )
 
-    # -- Executive summary ----------------------------------------------
+    #Executive summary
 
     story.append(
         Paragraph(
@@ -851,7 +780,7 @@ def generate_pdf(
         Spacer(1, 14)
     )
 
-    # -- Section 1: Port scan -------------------------------------------
+    #Section 1: Port scan
 
     story.append(
         Paragraph(
@@ -871,7 +800,7 @@ def generate_pdf(
         Spacer(1, 14)
     )
 
-    # -- Section 2: HTTP security headers -------------------------------
+    #Section 2: HTTP security headers
 
     story.append(
         Paragraph(
@@ -921,7 +850,7 @@ def generate_pdf(
         Spacer(1, 14)
     )
 
-    # -- Section 3: Endpoint discovery ---------------------------------
+    # Section 3: Endpoint discovery
 
     story.append(
         Paragraph(
@@ -941,7 +870,7 @@ def generate_pdf(
         Spacer(1, 14)
     )
 
-    # -- Section 4: CORS ------------------------------------------------
+    #  Section 4: CORS 
 
     story.append(
         Paragraph(
@@ -961,7 +890,7 @@ def generate_pdf(
         Spacer(1, 14)
     )
 
-    # -- Section 5: Technology detection -------------------------------
+    #  Section 5: Technology detection 
 
     story.append(
         Paragraph(
@@ -981,7 +910,7 @@ def generate_pdf(
         Spacer(1, 14)
     )
 
-    # -- Section 6: XSS -------------------------------------------------
+    #  Section 6: XSS 
 
     story.append(
         Paragraph(
@@ -1004,7 +933,7 @@ def generate_pdf(
         Spacer(1, 14)
     )
 
-    # -- Section 7: SQL injection --------------------------------------
+    #  Section 7: SQL injection 
 
     story.append(
         Paragraph(
@@ -1027,7 +956,7 @@ def generate_pdf(
         Spacer(1, 14)
     )
 
-    # -- Section 8: Open redirect ---------------------------------------
+    #  Section 8: Open redirect 
 
     story.append(
         Paragraph(
@@ -1054,7 +983,7 @@ def generate_pdf(
         )
     )
 
-    # -- Generate PDF ---------------------------------------------------
+    #  Generate PDF 
 
     doc.build(story)
 
