@@ -626,23 +626,27 @@ def _build_param_test_section(
         []
     ) or []
 
+    target_value = result.get("target", "-")
+
+    if isinstance(target_value, list):
+        target = "<br/>".join(
+            escape(str(url))
+                 for url in target_value
+         )
+    else:
+        target = escape(str(target_value))
+
     tested_text = (
-        ", ".join(str(parameter) for parameter in tested)
+        "<br/>".join(
+            escape(str(parameter))
+            for parameter in tested
+        )
         if tested
         else "None (no URL parameters found to test)"
     )
-
-    target = escape(
-        str(result.get("target", "-"))
-    )
-
-    tested_text = escape(
-        tested_text
-    )
-
     parts = [
         Paragraph(
-            f"<b>Tested URL:</b> {target}",
+            f"<b>Tested URL(s):</b><br/> {target}",
             styles["Meta"]
         ),
 
@@ -1055,3 +1059,4 @@ def generate_pdf(
     doc.build(story)
 
     return output_filename
+
