@@ -2,6 +2,9 @@
 """
 main.py
 
+VAPT-Engine command-line entry point.
+Ties together port scanning, endpoint enumeration, HTTP header analysis,
+web security checks, and PDF report generation.
 """
 
 import argparse
@@ -31,7 +34,7 @@ from core.redirect_checker import check_redirect
 from reporting.pdf_generator import generate_pdf
 from utils.logger import log_info, log_success, log_warn, log_error, print_banner
 
-
+# Same approach as the other modules: hide warnings for self-signed certs.
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 
@@ -263,7 +266,12 @@ def run_redirect_check(target_url: str) -> dict:
 
 
 def run_xss_checks_on_urls(urls: list) -> dict:
-    
+    """
+    Run the existing XSS checker against every parameterized URL and
+    combine the results into one dict shaped like check_xss()'s normal
+    return value, tagging each entry with the URL it came from so
+    findings from different pages don't get mixed together silently.
+    """
     aggregated = {
         "target": urls,
         "tested_parameters": [],
@@ -339,7 +347,10 @@ def run_redirect_checks_on_urls(urls: list) -> dict:
 
 
 def format_endpoints_for_report(raw_endpoints: list) -> list:
-    
+    """
+    Convert enum_engine's endpoint dicts into the shape
+    expected by pdf_generator.
+    """
     formatted = []
 
     for entry in raw_endpoints:
@@ -353,7 +364,10 @@ def format_endpoints_for_report(raw_endpoints: list) -> list:
 
 
 def format_headers_for_report(header_result: dict) -> dict:
-    
+    """
+    Convert header_checker's result into the shape expected
+    by pdf_generator.
+    """
     if not header_result:
         return {"missing": [], "present": {}}
 
@@ -364,7 +378,11 @@ def format_headers_for_report(header_result: dict) -> dict:
 
 
 def get_web_url(target: str, open_ports: list) -> str:
-    
+    """
+    Build the URL for the first detected web service.
+
+    Uses HTTP for ports 80 and 8080 and HTTPS for ports 443 and 8443.
+    """
     web_ports = {
         80: "http",
         443: "https",
@@ -387,7 +405,13 @@ def get_web_url(target: str, open_ports: list) -> str:
 
 
 def resolve_web_url(web_url: str) -> str:
-    
+    """
+    If web_url is plain HTTP and the site redirects to HTTPS on the same
+    host, return the HTTPS base URL instead. Otherwise return web_url as-is.
+
+    Doing this once, up front, means every later module uses the same URL
+    and enumeration never sees a blanket HTTP -> HTTPS redirect.
+    """
     if not web_url.startswith("http://"):
         return web_url
 
@@ -404,17 +428,18 @@ def resolve_web_url(web_url: str) -> str:
     if response.status_code not in (301, 302, 307, 308):
         return web_url
 
-    
+    # Location can be relative, so resolve it against the URL we requested.
     redirect_url = urllib.parse.urljoin(web_url, response.headers.get("Location", ""))
     old = urllib.parse.urlparse(web_url)
     new = urllib.parse.urlparse(redirect_url)
 
+    # Only switch for an HTTP -> HTTPS upgrade on the SAME host.
     if new.scheme != "https" or (new.hostname or "").lower() != (old.hostname or "").lower():
         return web_url
 
     https_base = f"https://{new.netloc}"
 
-    
+    # Make sure HTTPS actually answers before committing to it.
     try:
         requests.get(
             https_base, headers=request_headers, timeout=DEFAULT_HTTP_TIMEOUT,
@@ -446,15 +471,18 @@ def main():
         "xss": {},
         "sqli": {},
         "redirect": {},
+        "parameterized_urls": [],
     }
 
-    
+    # --- Port scan ---
     if run_ports:
         scan_results["open_ports"] = run_port_scan(target)
 
-    
+    # Find a web service from the open ports.
     web_url = get_web_url(target, scan_results["open_ports"])
 
+    # If the HTTP service just redirects to HTTPS, use the HTTPS URL for
+    # everything so all modules share one consistent base URL.
     if web_url:
         https_url = resolve_web_url(web_url)
         if https_url != web_url:
@@ -466,7 +494,7 @@ def main():
     if has_web_service:
         log_info(f"Web service detected at {web_url}")
 
-    
+    # --- Endpoint enumeration ---
     if run_enum:
         if has_web_service:
             raw_endpoints = run_enum_scan(web_url, args.wordlist)
@@ -474,7 +502,7 @@ def main():
         else:
             log_warn("No web service detected, skipping endpoint enumeration.")
 
-  
+    # --- Header analysis ---
     if run_headers:
         if has_web_service:
             header_result = run_header_check(web_url)
@@ -482,6 +510,7 @@ def main():
         else:
             log_warn("No web service detected, skipping HTTP header analysis.")
 
+    # --- Web security checks ---
     if args.all:
         if not has_web_service:
             log_warn("No web service detected, skipping web security checks.")
@@ -490,9 +519,15 @@ def main():
 
             scan_results["technologies"] = run_technology_detection(web_url)
 
-            
+            # --- Parameter discovery ---
+            # The XSS / SQLi / open-redirect checkers need URLs that already
+            # carry query parameters (e.g. /search.php?q=test), but endpoint
+            # enumeration only finds bare pages (e.g. /search.php). This step
+            # bridges the two by visiting each discovered endpoint and
+            # pulling parameterized URLs out of its links and GET forms.
             log_info("Starting parameter discovery...")
             parameterized_urls = discover_parameters(web_url, scan_results["endpoints"])
+            scan_results["parameterized_urls"] = parameterized_urls
             log_success(
                 f"Parameter discovery complete. "
                 f"{len(parameterized_urls)} parameterized URL(s) found."
@@ -512,7 +547,7 @@ def main():
                     "Skipping XSS/SQLi/open-redirect parameter checks."
                 )
 
-    
+    # --- Report generation ---
     log_info("Generating PDF report...")
 
     try:
@@ -532,3 +567,4 @@ if __name__ == "__main__":
     except KeyboardInterrupt:
         log_warn("Scan interrupted by user. Exiting.")
         sys.exit(1)
+

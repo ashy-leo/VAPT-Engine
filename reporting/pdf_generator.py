@@ -101,6 +101,7 @@ def _build_summary(scan_results, styles):
     
     open_ports = scan_results.get("open_ports", []) or []
     endpoints = scan_results.get("endpoints", []) or []
+    parameterized_urls = scan_results.get("parameterized_urls", []) or []
     headers_info = scan_results.get("http_headers", {}) or {}
     missing_headers = headers_info.get("missing", []) or []
     leak_headers = headers_info.get("present", {}) or {}
@@ -108,7 +109,8 @@ def _build_summary(scan_results, styles):
     rows = [
         ["Metric", "Count"],
         ["Open Ports", str(len(open_ports))],
-        ["Discovered Endpoints", str(len(endpoints))],
+        ["Endpoints Found by Enumeration", str(len(endpoints))],
+        ["Parameterized URLs Discovered", str(len(parameterized_urls))],
         ["Missing Security Headers", str(len(missing_headers))],
         ["Information-Leakage Headers", str(len(leak_headers))],
     ]
@@ -266,7 +268,7 @@ def _build_endpoint_table(scan_results, styles):
 
     if not endpoints:
         return Paragraph(
-            "No endpoints discovered.",
+            "No endpoints discovered by wordlist enumeration.",
             styles["CellText"]
         )
 
@@ -988,4 +990,5 @@ def generate_pdf(
     doc.build(story)
 
     return output_filename
+                            
 
